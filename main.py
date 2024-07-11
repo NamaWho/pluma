@@ -5,7 +5,7 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import fitz  # PyMuPDF
 import markdown
-from markdownify import markdownify as md
+import html2text
 
 load_dotenv()
 
@@ -81,10 +81,6 @@ def md_to_latex(md_text):
             latex_lines.append(line)
     return "\n".join(latex_lines)
 
-def format_as_plain_text(markdown_text):
-    plain_text = markdown.markdown(markdown_text)
-    return plain_text
-
 st.set_page_config(page_title="Handwritten Notes Transcription")
 
 st.header('Handwritten Notes Transcription with Google Gemini')
@@ -98,17 +94,24 @@ if uploaded_file is not None:
 
 submit = st.button("Transcribe Notes")
 
-input_prompt = """
+md_prompt = """
 You have to transcribe the handwritten notes in the image. The system should accurately recognize 
 and transcribe the text displayed in the image in Markdown format. 
 The output should contain structured text with title, summary, chapters, paragraphs, subparagraphs, and so on.
+"""
+
+plain_text_prompt = """
+You have to transcribe the handwritten notes in the image. The system should accurately recognize 
+and transcribe the text displayed in the image in plain text format.
+The output must be displayed in plain text with no markup or formatting.
 """
 
 if submit and images:
     all_responses = []
     for image_data in images:
         image_parts = [{"mime_type": "image/png", "data": image_data}]
-        response = get_gemini_response(input_prompt, image_parts, input)
+        current_prompt = plain_text_prompt if output_format == "Plain Text" else md_prompt
+        response = get_gemini_response(current_prompt, image_parts, input)
         all_responses.append(response)
 
     full_transcription_md = "\n\n".join(all_responses)
@@ -116,7 +119,7 @@ if submit and images:
     if output_format == "LaTeX":
         formatted_output = format_as_latex(full_transcription_md)
     elif output_format == "Plain Text":
-        formatted_output = format_as_plain_text(full_transcription_md)
+        formatted_output = full_transcription_md
     else:
         formatted_output = full_transcription_md
     
