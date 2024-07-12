@@ -84,6 +84,9 @@ def format_as_latex(content):
         \usepackage{{listings}}          
         % Insert hyperlinks between various text elements 
         \usepackage{{hyperref}}     
+        \title{{Transcribed Notes}}
+        \author{{}}
+        \date{{\today}}
         % Various types of underlining
         \usepackage[normalem]{{ulem}}
 
@@ -194,8 +197,10 @@ def format_as_latex(content):
 
         % -----------------------------------------------------------------
         \begin{{document}}
+        \maketitle
         \tableofcontents
         \setcounter{{chapter}}{{0}}
+        \newpage
         {content}
         \end{{document}}
     '''
@@ -236,7 +241,8 @@ def get_custom_prompt(format):
         '''
     elif format == "Plain Text":
         return f'''{base_prompt} 
-            as plain text.
+            in plain text format.
+            The output must be displayed in plain text with no markup or formatting.
         '''
     elif format == "LaTeX":
         template = f'''{base_prompt}
