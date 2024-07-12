@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 import fitz  # PyMuPDF
 import markdown
 from markdownify import markdownify as md
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import re
 
 load_dotenv()
 
@@ -41,49 +43,173 @@ def pdf_to_images(pdf_file):
         image_data = pix.tobytes("png")
         images.append(image_data)
     return images
+def format_as_latex(content):
+    latex_template = r'''
+    % Document type. Using twoside implies that chapters always start on the first page to the left, possibly leaving a blank page in the previous chapter. 
+        \documentclass[a4paper, openright]{{report}}
 
-def format_as_latex(markdown_text):
-    latex_template = r"""
-    \documentclass{{article}}
-    \usepackage{{amsmath}}
-    \usepackage{{graphicx}}
-    \usepackage{{hyperref}}
-    \title{{Transcribed Notes}}
-    \author{{}}
-    \date{{\today}}
-    \begin{{document}}
-    \maketitle
-    \tableofcontents
-    \newpage
-    {content}
-    \end{{document}}
-    """
-    # Convert markdown to LaTeX
-    latex_content = md_to_latex(markdown_text)
-    return latex_template.format(content=latex_content)
+        % Margin dimensions
+        \usepackage[a4paper,top=3cm,bottom=3cm,left=3cm,right=3cm]{{geometry}} 
+        % Font size
+        \usepackage[fontsize=13pt]{{scrextend}}
+        % Text language
+        \usepackage[english,italian]{{babel}}
+        % Bibliography language
+        \usepackage[fixlanguage]{{babelbib}}
+        % Text encoding
+        \usepackage[utf8]{{inputenc}} 
+        % Text encoding
+        \usepackage[T1]{{fontenc}}
+        % Generates dummy text. Useful 
+        % to understand how the 
+        % text would be formatted on 
+        % the page before writing a paragraph
+        \usepackage{{lipsum}}
+        % Rotate images
+        \usepackage{{rotating}}
+        % Modify page headers 
+        \usepackage{{fancyhdr}}               
 
-def md_to_latex(md_text):
-    """Convert markdown text to LaTeX formatted text."""
-    md_lines = md_text.split("\n")
-    latex_lines = []
-    for line in md_lines:
-        if line.startswith("# "):
-            latex_lines.append("\\section{" + line[2:] + "}")
-        elif line.startswith("## "):
-            latex_lines.append("\\subsection{" + line[3:] + "}")
-        elif line.startswith("### "):
-            latex_lines.append("\\subsubsection{" + line[4:] + "}")
-        elif line.startswith("- "):
-            latex_lines.append("\\item " + line[2:])
-        elif line.startswith("**") and line.endswith("**"):
-            latex_lines.append("\\textbf{" + line[2:-2] + "}")
-        else:
-            latex_lines.append(line)
-    return "\n".join(latex_lines)
+        % Mathematical libraries
+        \usepackage{{amssymb}}
+        \usepackage{{amsmath}}
+        \usepackage{{amsthm}}         
 
-def format_as_plain_text(markdown_text):
-    plain_text = markdown.markdown(markdown_text)
-    return plain_text
+        % Use of images
+        \usepackage{{graphicx}}
+        \usepackage{{subcaption}}
+        % Use of colors
+        \usepackage[dvipsnames]{{xcolor}}         
+        % Use of code listings
+        \usepackage{{listings}}          
+        % Insert hyperlinks between various text elements 
+        \usepackage{{hyperref}}     
+        % Various types of underlining
+        \usepackage[normalem]{{ulem}}
+
+        % Hide title
+        \usepackage{{titlesec}}
+
+        \usepackage{{array}}
+
+        % -----------------------------------------------------------------
+
+        % Modify header style
+        \pagestyle{{fancy}}
+        \fancyhf{{}}
+        \lhead{{\rightmark}}
+        \rhead{{\textbf{{\thepage}}}}
+        \fancyfoot{{}}
+        \setlength{{\headheight}}{{15.6pt}}
+
+        % Remove page number at chapter beginnings
+        \fancypagestyle{{plain}}{{ 
+        \fancyfoot{{}}
+        \fancyhead{{}}
+        \renewcommand{{\headrulewidth}}{{0pt}}
+        }}
+        
+        % Code style
+        \lstdefinestyle{{codeStyle}}{{ 
+            % Comment color
+            commentstyle=\color{{teal}},
+            % Keyword color
+            keywordstyle=\color{{Magenta}},
+            % Line number style
+            numberstyle=\tiny\color{{gray}},
+            % String color
+            stringstyle=\color{{violet}},
+            % Text size and style
+            basicstyle=\ttfamily\footnotesize,
+            % newline only at whitespace
+            breakatwhitespace=false,     
+            % newline yes/no
+            breaklines=true,                 
+            % Caption position, top/bottom 
+            captionpos=b,                    
+            % Preserve spaces in code, useful for indentation
+            keepspaces=true,                 
+            % Where to display line numbers
+            numbers=left,                    
+            % Distance between line numbers and code
+            numbersep=5pt,                  
+            % Show spaces or not
+            showspaces=false,                
+            % Show spaces within strings
+            showstringspaces=false,
+            % Show tabs
+            showtabs=false,
+            % Tab size
+            tabsize=2
+        }} \lstset{{style=codeStyle}}
+
+        % Code style for larger blocks, where smaller text is needed (e.g., inserting code with very long lines). To use this style instead of the previous one, use 
+
+        % \lstset{{style=longBlock}}
+        %  % insert code...
+        % \lstset{{style=codeStyle}}
+
+        % The second command allows you to return to the previous style 
+        \lstdefinestyle{{longBlock}}{{ 
+            commentstyle=\color{{teal}},
+            keywordstyle=\color{{Magenta}},
+            numberstyle=\tiny\color{{gray}},
+            stringstyle=\color{{violet}},
+            basicstyle=\ttfamily\tiny,
+            breakatwhitespace=false,         
+            breaklines=true,                 
+            captionpos=b,                    
+            keepspaces=true,                 
+            numbers=left,                    
+            numbersep=5pt,                  
+            showspaces=false,                
+            showstringspaces=false,
+            showtabs=false,                  
+            tabsize=2
+        }} \lstset{{style=codeStyle}}
+
+        % Uncommenting the following command includes sources from Bibliography.bib that are not directly cited with the \cite command
+        % \nocite{{*}}
+
+        % Margins before and after code blocks, for more spacing
+        \lstset{{aboveskip=20pt,belowskip=20pt}}
+
+        % Change reference colors
+        \definecolor{{mycolor}}{{RGB}}{{0, 112, 192}}
+        \hypersetup{{ 
+            colorlinks,
+            linkcolor=mycolor,
+            citecolor=mycolor
+        }}
+
+        % Added definitions, theorems, line, and listings
+        \newtheorem{{definition}}{{Definition}}[section]
+        \newtheorem{{theorem}}{{Theorem}}[section]
+        \providecommand*\definitionautorefname{{Definition}}
+        \providecommand*\theoremautorefname{{Theorem}}
+        \providecommand*\listingautorefname{{Listing}}
+        \providecommand*\lstnumberautorefname{{Line}}
+
+        \raggedbottom
+
+        % -----------------------------------------------------------------
+        \begin{{document}}
+        \tableofcontents
+        \setcounter{{chapter}}{{0}}
+        {content}
+        \end{{document}}
+    '''
+    # Add the content to the template
+    return latex_template.format(content=content)
+
+
+def process_result(result):
+    # Usa una regex per estrarre il contenuto tra \begin{document} e \end{document}
+    content = re.search(r'\\begin{document}(.*?)\\end{document}', result, re.DOTALL)
+    if content:
+        return content.group(1).strip()
+    else:
+        return result
 
 st.set_page_config(page_title="Handwritten Notes Transcription")
 
@@ -98,27 +224,57 @@ if uploaded_file is not None:
 
 submit = st.button("Transcribe Notes")
 
-input_prompt = """
-You have to transcribe the handwritten notes in the image. The system should accurately recognize 
-and transcribe the text displayed in the image in Markdown format. 
-The output should contain structured text with title, summary, chapters, paragraphs, subparagraphs, and so on.
-"""
-
-if submit and images:
-    all_responses = []
-    for image_data in images:
-        image_parts = [{"mime_type": "image/png", "data": image_data}]
-        response = get_gemini_response(input_prompt, image_parts, input)
-        all_responses.append(response)
-
-    full_transcription_md = "\n\n".join(all_responses)
-    
-    if output_format == "LaTeX":
-        formatted_output = format_as_latex(full_transcription_md)
-    elif output_format == "Plain Text":
-        formatted_output = format_as_plain_text(full_transcription_md)
+def get_custom_prompt(format):
+    base_prompt = '''
+        You have to transcribe the handwritten notes in the image. 
+        The system should accurately recognize 
+        and transcribe the text displayed in the image '''
+    if format == "Markdown":
+        return f'''{base_prompt}
+            in Markdown format. 
+            The output should contain structured text with title, chapters, paragraphs, subparagraphs, and so on.
+        '''
+    elif format == "Plain Text":
+        return f'''{base_prompt} 
+            as plain text.
+        '''
+    elif format == "LaTeX":
+        template = f'''{base_prompt}
+            in LaTeX format. 
+            The output should contain structured text with chapters, sections, subsections, paragraphs, subparagraphs.
+            THe output can contain tables, figures, and equations.
+            The output should not include images.
+            The output should not include any references to additional files.
+        '''
+        return template
     else:
-        formatted_output = full_transcription_md
+        return base_prompt
+
+
+input_prompt = get_custom_prompt(output_format)
+if submit and images:
+    # Prepara i dati per le chiamate parallele
+    tasks = {}
+    with ThreadPoolExecutor(max_workers=len(images)) as executor:
+        for i, image_data in enumerate(images):
+            image_parts = [{"mime_type": "image/png", "data": image_data}]
+            # Programma l'esecuzione della funzione e memorizza l'oggetto Future
+            task = executor.submit(get_gemini_response, get_custom_prompt(output_format), image_parts, input)
+            tasks[i] = task
+
+    # Recupera i risultati in modo asincrono mantenendo l'ordine
+    all_responses = [None] * len(images)  # Crea una lista con la lunghezza delle immagini
+    for i in tasks:
+        future = tasks[i]
+        result = future.result()
+        all_responses[i] = process_result(result)  # Memorizza il risultato nella posizione corretta
+
+    output = "\n\n".join(all_responses)
+
+    if output_format == "LaTeX":
+        formatted_output = format_as_latex(output)
+    else:
+        formatted_output = output
     
     st.subheader("Transcription report: ")
     st.write(formatted_output)

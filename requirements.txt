@@ -1,0 +1,6 @@
+google-generativeai
+python-dotenv
+PyMuPDF
+markdown
+markdownify
+streamlit
