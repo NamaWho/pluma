@@ -5,3 +5,5 @@ markdown
 markdownify
 streamlit
 pypandoc
+spacy
+gensim
