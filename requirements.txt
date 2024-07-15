@@ -4,3 +4,4 @@ PyMuPDF
 markdown
 markdownify
 streamlit
+pypandoc
