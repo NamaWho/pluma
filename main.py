@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_pdf_viewer import pdf_viewer
 import os
 from PIL import Image
 import google.generativeai as genai
@@ -321,7 +322,7 @@ def process_file():
 #################################################################
 
 # Set page config first
-st.set_page_config(page_title="Plūma - Handwritten Notes Transcription")
+st.set_page_config(page_title="Plūma - Handwritten Notes Transcription", layout="wide", initial_sidebar_state="expanded")
 
 # Custom CSS for the Streamlit app
 st.markdown(
@@ -385,6 +386,8 @@ def initialize_session_state():
         st.session_state.output = ""
     if "all_responses" not in st.session_state:
         st.session_state.all_responses = []
+    if "pdf_ref" not in st.session_state:
+        st.session_state.pdf_ref = None
 
 # Initialize session state
 initialize_session_state()
@@ -392,22 +395,31 @@ initialize_session_state()
 # Title and header
 st.title("Plūma")
 
-# Allow users to upload a PDF file containing handwritten notes
-st.session_state.uploaded_file = st.file_uploader(r"Choose a PDF of handwritten notes", type=["pdf"])
+l, r = st.columns(2)
+with l:
+    # Allow users to upload a PDF file containing handwritten notes
+    st.session_state.uploaded_file = st.file_uploader(r"Choose a PDF of handwritten notes", type=["pdf"])
+    # Conversion buttons
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.session_state.plain_text_convert = st.button("Convert to Plain Text")
+    with col2:
+        st.session_state.markdown_convert = st.button("Convert to Markdown")
+    with col3:
+        st.session_state.latex_convert = st.button("Convert to LaTeX")
+    # Check if a file is uploaded and display the number of pages in the PDF
+    if st.session_state.uploaded_file is not None:
+        st.session_state.images = pdf_to_images(st.session_state.uploaded_file)
+        st.write(f"Uploaded PDF with {len(st.session_state.images)} pages")
+    st.text("")
+    st.text("")
+    st.text("")
+    st.text("")
+with r:
+    if st.session_state.uploaded_file is not None:
+        # Display the uploaded PDF file
+        pdf_viewer(input=st.session_state.uploaded_file.getvalue(), height=400)
 
-# Conversion buttons
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.session_state.plain_text_convert = st.button("Convert to Plain Text")
-with col2:
-    st.session_state.markdown_convert = st.button("Convert to Markdown")
-with col3:
-    st.session_state.latex_convert = st.button("Convert to LaTeX")
-
-# Check if a file is uploaded and display the number of pages in the PDF
-if st.session_state.uploaded_file is not None:
-    st.session_state.images = pdf_to_images(st.session_state.uploaded_file)
-    st.write(f"Uploaded PDF with {len(st.session_state.images)} pages")
 
 # Check if the user has clicked any conversion button and there are images to process
 if (st.session_state.plain_text_convert or st.session_state.markdown_convert or st.session_state.latex_convert) and st.session_state.images:

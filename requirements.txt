@@ -7,3 +7,4 @@ streamlit
 pypandoc
 spacy
 gensim
+streamlit_pdf_viewer
