@@ -443,7 +443,7 @@ with right:
 # Display the input and enhanced text boxes
 left_column, right_column = st.columns(2)
 with left_column:
-    st.session_state.input_box = st.text_area("Text to enhance", height=200)
+    st.session_state.input_box = st.text_area("Text to enhance", height=400)
 with right_column:
     # Check if the user has clicked the "Enhance Text" button
     if st.session_state.enhanced_button:
@@ -452,7 +452,7 @@ with right_column:
             get_echanced_text_prompt(st.session_state.format_selected, st.session_state.input_box), \
             [{"mime_type": "image/png", "data": st.session_state.images[get_image_index(st.session_state.input_box)]}])
         st.session_state.enhanced_button = False
-    st.text_area("Enhanced text", value=st.session_state.enhanced_text, height=200, disabled=True)
+    st.text_area("Enhanced text", value=st.session_state.enhanced_text, height=400, disabled=True)
 
 # Download button for the transcription
 st.download_button(
