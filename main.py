@@ -444,14 +444,17 @@ with right:
 left_column, right_column = st.columns(2)
 with left_column:
     st.session_state.input_box = st.text_area("Text to enhance", height=400)
-with right_column:
     # Check if the user has clicked the "Enhance Text" button
     if st.session_state.enhanced_button:
         # Get the enhanced text prompt based on the selected format and input text
-        st.session_state.enhanced_text = get_gemini_response( \
-            get_echanced_text_prompt(st.session_state.format_selected, st.session_state.input_box), \
-            [{"mime_type": "image/png", "data": st.session_state.images[get_image_index(st.session_state.input_box)]}])
+        try:
+            st.session_state.enhanced_text = get_gemini_response( \
+                get_echanced_text_prompt(st.session_state.format_selected, st.session_state.input_box), \
+                [{"mime_type": "image/png", "data": st.session_state.images[get_image_index(st.session_state.input_box)]}])
+        except Exception as e:
+            st.error("No images have been uploaded")
         st.session_state.enhanced_button = False
+with right_column:
     st.text_area("Enhanced text", value=st.session_state.enhanced_text, height=400, disabled=True)
 
 # Download button for the transcription
